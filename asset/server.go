@@ -1,9 +1,3 @@
-//comments initial+ in postman need to send
-
-/*Server Management using GOlang.
-Modified on 18/8/2022
-Modified by Sushmitha B Kongi
-This file contains funtions related to add asset,list all asset as infra admin(role).*/
 package asset
 
 import (
@@ -94,13 +88,6 @@ type Server_Request struct {
 	User_Comments           string    `json:"User_Comments"`
 	Request                 bool      `json:"Request"`
 }
-
-type Chat struct {
-	Id      int        `json:"Id"`
-	Comment [][]string `json:"Comment"`
-	// Date    string   `json:"Date"`
-}
-
 type changepwd struct {
 	Email_Id     string `json:"Email_Id"`
 	Old_Password string `json:"Old_Password"`
@@ -123,6 +110,15 @@ var db = dbs.Connect() //database connection using function
 var secretkey string = "Infobellitsolution"
 var jwtKey = []byte("InfobellItSolutions")
 var v Server_Request
+
+//--------------------------------------------------cors policy disabled---------------------------------------------------------------
+// func SetupCORS(w *http.ResponseWriter) {
+// 	fmt.Println("Inside CORS")
+// 	(*w).Header().Set("Access-Control-Allow-Origin", "http:localhost:5002")
+// 	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+// 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+// }
 
 //----------------------------------------------------authorization file----------------------------------------------------------
 
@@ -191,18 +187,8 @@ func RefreshHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Hello, %s", claims.Username)))
 }
 
-//--------------------------------------------------cors policy disabled---------------------------------------------------------------
-// func SetupCORS(w *http.ResponseWriter) {
-// 	fmt.Println("Inside CORS")
-// 	(*w).Header().Set("Access-Control-Allow-Origin", "http:localhost:5002")
-// 	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-// 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-
-// }
-
 func HandleFunc() {
 	mux := http.NewServeMux()
-
 	//----------------------------------------------------login----------------------------------------------------------------------
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
@@ -219,8 +205,7 @@ func HandleFunc() {
 
 		err := json.NewDecoder(r.Body).Decode(&l)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Message": "Invalid Input Syntax", "Status Code": "400 "})
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -260,8 +245,6 @@ func HandleFunc() {
 				if err != nil {
 					fmt.Println("Error in generating JWT Err : ", err.Error())
 					w.WriteHeader(http.StatusInternalServerError)
-					json.NewEncoder(w).Encode(map[string]string{"Message": "The server encountered an unexpected condition that prevented it from fulfilling the request", "Status Code": "500 "})
-
 					return
 				}
 
@@ -274,8 +257,8 @@ func HandleFunc() {
 				username := strings.Split(l.Email_Id, "@")
 				json.NewEncoder(w).Encode(map[string]string{"User_Id": ID, "Role": ROLE, "Username": username[0], "Token": tokenString, "status": "200 OK", "Message": "Successfully Logged In"})
 			} else {
-				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]string{"Status Code": "401", "Message": "Invalid password"})
+				w.WriteHeader(http.StatusAccepted)
+				json.NewEncoder(w).Encode(map[string]string{"Status Code": "202", "Message": "Invalid password"})
 			}
 
 		}
@@ -335,7 +318,7 @@ func HandleFunc() {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		//func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
+		if r.Method != http.MethodPut {
 			w.WriteHeader(405) // Return 405 Method Not Allowed.
 			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
 			return
@@ -345,14 +328,12 @@ func HandleFunc() {
 
 		err := json.NewDecoder(r.Body).Decode(&p)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Message": "Invalid Input Syntax", "Status Code": "400 "})
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if p.Old_Password == "nil" || p.New_Password == "nil" {
+			json.NewEncoder(w).Encode(map[string]string{"Status Code": "400", "Message": "Bad Request"})
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Status Code": "400", "Message": "Invalid input syntax"})
-			return
 
 		} else {
 			//id := strconv.Itoa(p.User_id)
@@ -365,8 +346,7 @@ func HandleFunc() {
 				fmt.Println(err_scan.Error())
 			}
 			if db_user == "" || Password == "" {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]string{"Status Code": "400", "Message": "Invalid input syntax"})
+				json.NewEncoder(w).Encode(map[string]string{"Status Code": "OK", "Message": "No record found"})
 			} else {
 				//if user is available in table and password you entered matches the old password,new password is updated on table.
 				temp_pwd, _ := GeneratehashPassword(p.New_Password)
@@ -387,7 +367,6 @@ func HandleFunc() {
 					}
 					json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "200", "Message": "Password Updated", "updated row": affectedRow})
 				} else {
-					w.WriteHeader(http.StatusUnauthorized)
 					json.NewEncoder(w).Encode(map[string]string{"Status Code": "401", "Message": "Unauthorised Password"})
 
 				}
@@ -403,7 +382,7 @@ func HandleFunc() {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		//func ResetPassword(w http.ResponseWriter, r *http.Request) {
 		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
+		if r.Method != http.MethodPut {
 			w.WriteHeader(405) // Return 405 Method Not Allowed.
 			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
 			return
@@ -418,16 +397,15 @@ func HandleFunc() {
 		//To convert the password in the encrypted form
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(p.Password), 14)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Status Code": "400", "Message": "Invalid input syntax"})
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		var EmailId string
 		err = db.QueryRow("SELECT Email_Id from Users where Email_Id =$1", p.Email_Id).Scan(&EmailId)
 		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "User doesn't exist", "err": err, "Status Code": "404"})
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "User doesn't exist", "err": err, "Status Code": "202 Accepted"})
 			return
 		}
 		_, err2 := db.Exec("UPDATE Users SET Password=$2 WHERE Email_Id=$1;", p.Email_Id, string(hashedPassword))
@@ -460,27 +438,29 @@ func HandleFunc() {
 
 		err := json.NewDecoder(r.Body).Decode(&assets)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Message": "Invalid Input Syntax", "Status Code": "400 "})
+			w.WriteHeader(http.StatusAccepted)
+
+			json.NewEncoder(w).Encode(map[string]string{"Message": "Invalid Input Syntax", "Status Code": "202 "})
+
 			return
 		}
 
 		err = db.QueryRow("Select Asset_Id from Asset where Asset_Id=$1", assets.Asset_Id).Scan(&Asset_Id)
 
 		Asset_Id = Asset_Id + 1
-		addStatement := `INSERT INTO asset (Asset_Name,Manufacturer, BMC_IP, BMC_User, BMC_Password, Asset_location,Created_on,Created_by,OS_IP,OS_User,OS_Password,Purpose,Cluster_Id,Delete,Reserved) VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,$7,$8,$9,$10,$11,$12,'0','f')`
+		addStatement := `INSERT INTO asset (Asset_Name,Manufacturer, BMC_IP, BMC_User, BMC_Password, Asset_location,Created_on,Created_by,OS_IP,OS_User,OS_Password,Purpose,Cluster_Id,Delete) VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,$7,$8,$9,$10,$11,$12,'0')`
 		_, err = db.Exec(addStatement, assets.Asset_Name, assets.Manufacturer, assets.BMC_IP, assets.BMC_User, assets.BMC_Password, assets.Asset_Location, assets.Created_by, assets.OS_IP, assets.OS_User, assets.OS_Password, assets.Purpose, assets.Cluster_Id)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusAccepted)
 			fmt.Println(err)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Invalid input syntax for IP ", "Status Code": "400 ", "Error": err})
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Invalid input syntax for IP ", "Status Code": "202 ", "Error": err})
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "200 OK", "Message": "Recorded sucessfully"})
 	})
 
-	//----------------------------------------------------Platform Profile---------------------------------------------------------------------
+	//--------------------------------------------Platform Profile---------------------------------------------------------------------
 	mux.HandleFunc("/platformProfile", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -501,487 +481,6 @@ func HandleFunc() {
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{"PlatformProfile": objmap, "Status Code": "200 OK", "Message": "Recorded sucessfully"})
-	})
-
-	//--------------------------------------------------------Assign Server--------------------------------------------------------------------------
-	mux.HandleFunc("/assign_asset", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func Assign_asset(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
-			w.WriteHeader(405)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		var p Asset[int]
-		err := json.NewDecoder(r.Body).Decode(&p)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Invalid Syntax", "Status Code": "400 "})
-			return
-		}
-
-		var reserved bool
-		var delete int
-		err = db.QueryRow("SELECT Reserved , Delete FROM Asset where Asset_ID=$1", p.Asset_Id).Scan(&reserved, &delete)
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server already in use", "Status Code": "401 "})
-			return
-		}
-		if !reserved && delete == 0 {
-
-			_, err = db.Exec("UPDATE asset SET Assigned_to=$2,Assigned_from=CURRENT_DATE,Assigned_by=$3,Updated_on=CURRENT_DATE,Updated_by=$4,reserved = 'true',status='true' WHERE Asset_ID=$1;", p.Asset_Id, p.Assigned_to, p.Assigned_by, p.Updated_by)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]string{"Message": "Invalid Input Syntax", "Status Code": "400 "})
-				return
-			}
-
-			_, err := db.Exec(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,Remarks)
-		SELECT Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,'Server Assigned' FROM Asset where Asset_ID=$1`, p.Asset_Id)
-
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server Assigned", "Status Code": "200 OK"})
-
-		} else {
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server cannot be assigned", "Status Code": "401"})
-
-		}
-	})
-
-	//-------------------------------------------------Delete Server(Updating delete and reserved column in asset table)-------------------------------
-	mux.HandleFunc("/delete_asset", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func Delete_asset(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		var p Asset[int]
-		err := json.NewDecoder(r.Body).Decode(&p)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "400 "})
-			return
-		}
-		_, err = db.Exec("UPDATE asset SET Delete='1', Reserved = 'f' , Assigned_to = null WHERE Asset_Id=$1;", p.Asset_Id)
-		if err != nil {
-			w.WriteHeader(http.StatusAccepted)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
-			return
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Deleted Server!", "Status Code": "200 OK"})
-		row := db.QueryRow("SELECT Delete from asset where Asset_Id=$1;", p.Asset_Id)
-		var del int
-		err1 := row.Scan(&del)
-		if err1 != nil {
-			log.Fatal(err1)
-		}
-		if !p.Reserved && del == 1 {
-			_, err := db.Query(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_ON,Updated_by,Remarks) 
-		SELECT Asset_ID,Assigned_to,Assigned_from,Updated_ON,Updated_by,'Server Deleted' FROM Asset where Asset_Id=$1`, p.Asset_Id)
-			if err != nil {
-				w.WriteHeader(http.StatusAccepted)
-				json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
-				return
-			}
-		} else {
-			w.WriteHeader(http.StatusAccepted)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "No update required", "Status Code": "202"})
-		}
-	})
-
-	//-----------------------------------------------------List server ------------------------------------------------
-	mux.HandleFunc("/list_asset", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func ListServer(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodGet {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		str := "SELECT Asset_ID, Asset_Name,Manufacturer,BMC_IP,BMC_User,Asset_location,COALESCE(Reserved,false),COALESCE(Assigned_to, 0),COALESCE(Assigned_from, '0001-01-01'),COALESCE(Assigned_by, ''),Created_on,Created_by,COALESCE(Updated_on,'0001-01-01'),COALESCE(Updated_by, ''),OS_IP ,OS_User,Purpose,COALESCE(Cluster_ID,''),Delete,COALESCE(Status, false) FROM Asset"
-
-		rows, err := db.Query(str)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "400 "})
-			return
-		}
-		result := []Asset[string]{} // creating slice
-		for rows.Next() {
-			var Asset_Id, Assigned_to, Delete int
-			var Asset_Name, Manufacturer, OS_IP, OS_User, BMC_IP, BMC_User, Asset_Location, Assigned_by, Created_by, Updated_by, Cluster_Id, Purpose string
-			var Created_on, Updated_on, Assigned_from time.Time
-			var Status, Reserved bool
-
-			err := rows.Scan(&Asset_Id, &Asset_Name, &Manufacturer, &BMC_IP, &BMC_User, &Asset_Location, &Reserved, &Assigned_to, &Assigned_from, &Assigned_by, &Created_on, &Created_by, &Updated_on, &Updated_by, &OS_IP, &OS_User, &Purpose, &Cluster_Id, &Delete, &Status)
-
-			if err != nil {
-				fmt.Println(err)
-				log.Printf("Failed to build content from sql rows: %v\n", err)
-
-			}
-
-			marshal, _ := json.Marshal(result)
-			var c []Historic_details[string]
-			var username []string
-			var mail string
-			var user string
-			_ = json.Unmarshal(marshal, &c)
-			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
-			if err != nil {
-				fmt.Println(err)
-			}
-			username = strings.Split(mail, "@")
-			user = username[0]
-			result = append(result, Asset[string]{Asset_Id: Asset_Id, Asset_Name: Asset_Name, Manufacturer: Manufacturer, BMC_IP: BMC_IP, BMC_User: BMC_User, Asset_Location: Asset_Location, Reserved: Reserved, Assigned_to: user, Assigned_by: Assigned_by, Assigned_from: Assigned_from, Created_by: Created_by, Created_on: Created_on, Updated_by: Updated_by, Updated_on: Updated_on, OS_IP: OS_IP, OS_User: OS_User, Cluster_Id: Cluster_Id, Purpose: Purpose, Delete: Delete, Status: Status})
-		}
-		rev_slc := []Asset[string]{}
-		for i := range result {
-			// reverse the order
-			rev_slc = append(rev_slc, result[len(result)-1-i])
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"ListAsset": rev_slc, "Status Code": "200 OK", "Message": "Listing all assets"})
-	})
-
-	// ----------------------------------------------list of Reserved Assets-----------------------------------------------------------
-	mux.HandleFunc("/list_asset/Reserved", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func Reserved(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodGet {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		str := "SELECT Asset_ID,Asset_Name,Manufacturer,BMC_IP,BMC_User,Asset_location,COALESCE(Reserved,false),COALESCE(Assigned_to,0),COALESCE(Assigned_from,'0001-01-01'),COALESCE(Assigned_by,' '),COALESCE(Created_on,'0001-01-01'),Created_by,COALESCE(Updated_on,'0001-01-01'),COALESCE(Updated_by,''),OS_IP,OS_User,Purpose,Cluster_ID,Delete,COALESCE(Status,false) FROM Asset where Reserved=true"
-		rows, err := db.Query(str)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "400 "})
-			return
-		}
-		result := []Asset[string]{} // creating slice
-		var Asset_Id, Assigned_to, Delete int
-		var Asset_Name, Manufacturer, OS_IP, OS_User, BMC_IP, BMC_User, Asset_Location, Assigned_by, Created_by, Updated_by, Cluster_Id, Purpose string
-		var Created_on, Updated_on, Assigned_from time.Time
-		var Status, Reserved bool
-		for rows.Next() {
-			err := rows.Scan(&Asset_Id, &Asset_Name, &Manufacturer, &BMC_IP, &BMC_User, &Asset_Location, &Reserved, &Assigned_to, &Assigned_from, &Assigned_by, &Created_on, &Created_by, &Updated_on, &Updated_by, &OS_IP, &OS_User, &Purpose, &Cluster_Id, &Delete, &Status)
-
-			if err != nil {
-				fmt.Println(err)
-				log.Printf("Failed to build content from sql rows: %v\n", err)
-
-			}
-
-			marshal, _ := json.Marshal(result)
-			var c []Historic_details[string]
-			var username []string
-			var mail string
-			var user string
-			_ = json.Unmarshal(marshal, &c)
-			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
-			if err != nil {
-				fmt.Println(err)
-			}
-			username = strings.Split(mail, "@")
-			user = username[0]
-			result = append(result, Asset[string]{Asset_Id: Asset_Id, Asset_Name: Asset_Name, Manufacturer: Manufacturer, BMC_IP: BMC_IP, BMC_User: BMC_User, Asset_Location: Asset_Location, Reserved: Reserved, Assigned_to: user, Assigned_by: Assigned_by, Assigned_from: Assigned_from, Created_by: Created_by, Created_on: Created_on, Updated_by: Updated_by, Updated_on: Updated_on, OS_IP: OS_IP, OS_User: OS_User, Cluster_Id: Cluster_Id, Purpose: Purpose, Delete: Delete, Status: Status})
-		} // appending deatils to the result
-		rev_slc := []Asset[string]{}
-		for i := range result {
-			// reverse the order
-			rev_slc = append(rev_slc, result[len(result)-1-i])
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"ListAsset": rev_slc, "Status Code": "200 OK", "Message": "Listing all assets"})
-	})
-
-	// --------------------------------------------------list of pools Assets--------------------------------------------------------
-	mux.HandleFunc("/list_asset/pool", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func Pool(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodGet {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-
-		str := "SELECT Asset_ID,Asset_Name,Manufacturer,BMC_IP,BMC_User,Asset_location,COALESCE(Reserved,false),COALESCE(Assigned_to,0),COALESCE(Assigned_from,'0001-01-01'),COALESCE(Assigned_by,' '),COALESCE(Created_on,'0001-01-01'),Created_by,COALESCE(Updated_on,'0001-01-01'),COALESCE(Updated_by,' '),OS_IP,OS_User,Purpose,Cluster_ID,Delete,COALESCE(Status,false) FROM Asset where Delete=B'0' AND Reserved='false' OR Reserved is null "
-
-		rows, err := db.Query(str)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "400 "})
-			return
-		}
-		result := []Asset[string]{} // creating slice
-		for rows.Next() {
-
-			var Asset_ID, Assigned_to, Delete int
-			var Assigned_from, Updated_on, Created_on time.Time
-			var Asset_Name, Manufacturer, OS_IP, OS_User, BMC_IP, BMC_user, Asset_location, Assigned_by, Created_by, Updated_by, Cluster_ID, Purpose string
-			var Reserved, Status bool
-			err := rows.Scan(&Asset_ID, &Asset_Name, &Manufacturer, &BMC_IP, &BMC_user, &Asset_location, &Reserved, &Assigned_to, &Assigned_from, &Assigned_by, &Created_on, &Created_by, &Updated_on, &Updated_by, &OS_IP, &OS_User, &Purpose, &Cluster_ID, &Delete, &Status)
-
-			if err != nil {
-				fmt.Println(err)
-				log.Printf("Failed to build content from sql rows: %v\n", err)
-
-			}
-
-			marshal, _ := json.Marshal(result)
-			var c []Historic_details[string]
-			var username []string
-			var mail string
-			var user string
-			_ = json.Unmarshal(marshal, &c)
-			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
-			if err != nil {
-				fmt.Println(err)
-			}
-			username = strings.Split(mail, "@")
-			user = username[0]
-			result = append(result, Asset[string]{Asset_Id: Asset_ID, Asset_Name: Asset_Name, Manufacturer: Manufacturer, BMC_IP: BMC_IP, BMC_User: BMC_user, Asset_Location: Asset_location, Reserved: Reserved, Assigned_to: user, Assigned_by: Assigned_by, Assigned_from: Assigned_from, Created_by: Created_by, Created_on: Created_on, Updated_by: Updated_by, Updated_on: Updated_on, OS_IP: OS_IP, OS_User: OS_User, Cluster_Id: Cluster_ID, Purpose: Purpose, Delete: Delete, Status: Status})
-		} // appending deatils to the result
-		rev_slc := []Asset[string]{}
-		for i := range result {
-			// reverse the order
-			rev_slc = append(rev_slc, result[len(result)-1-i])
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"ListAsset": rev_slc, "Status Code": "200 OK", "Message": "Listing all assets"})
-	})
-
-	//--------------------------------------------------update asset details------------------------------------------------------
-	mux.HandleFunc("/update_asset_details", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func UpdateAssetDetails(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		var p Asset[int]
-		Delete := p.Delete
-		err := json.NewDecoder(r.Body).Decode(&p)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		_, err1 := db.Exec("UPDATE Asset SET BMC_Password=$2,Asset_location=$3,Updated_on=CURRENT_DATE,Updated_by=$4,Purpose=$5 WHERE Asset_ID=$1;", p.Asset_Id, p.BMC_Password, p.Asset_Location, p.Updated_by, p.Purpose)
-
-		if err1 != nil {
-			w.WriteHeader(http.StatusAccepted)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err1, "Status Code": "202 "})
-			return
-		}
-
-		if Delete == 1 || Delete == 0 {
-			_, err := db.Query(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,Remarks)
-            SELECT Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,'Asset_updated' FROM Asset where Asset_ID=$1`, p.Asset_Id)
-
-			if err != nil {
-				fmt.Println(err)
-			}
-			//fmt.Fprintf(w, "Record Updated!")
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Record Updated!", "Status Code": "200 OK"})
-
-		} else {
-			fmt.Println("No update is required")
-		}
-	})
-
-	//----------------------------------------------Release server (updating Reserve table)------------------------
-	mux.HandleFunc("/release_asset", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func Release(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		var p Asset[int]
-		err := json.NewDecoder(r.Body).Decode(&p)
-		if err != nil {
-			panic(err.Error())
-		}
-		var reserved bool
-		err = db.QueryRow("SELECT Reserved FROM Asset where Asset_ID=$1", p.Asset_Id).Scan(&reserved)
-		if err != nil {
-			fmt.Println(err)
-
-		}
-		if reserved {
-
-			_, err = db.Exec("UPDATE Asset SET Reserved='false',Assigned_to=null,Assigned_by=null,Updated_on=CURRENT_DATE,Updated_by=$2 where Asset_ID=$1;", p.Asset_Id, p.Updated_by) // query for updating
-			if err != nil {
-				fmt.Println(err)
-
-				http.Error(w, http.StatusText(500), http.StatusInternalServerError)
-				return
-			}
-
-			_, err := db.Exec(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,Remarks)
-        SELECT Asset_ID,Assigned_to,Assigned_from,CURRENT_DATE,Updated_by,'Server Released' FROM Asset where Asset_ID=$1`, p.Asset_Id)
-
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server Released", "Status Code": "200 OK"})
-
-		} else {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server can't release", "Status Code": "400"})
-
-		}
-	})
-
-	//------------------------------------------------------getmyasset--------------------------------------------------------
-	mux.HandleFunc("/my_asset", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func GetAsset(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		var p Asset[int]
-		err := json.NewDecoder(r.Body).Decode(&p)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		rows, err := db.Query("SELECT * from Asset where Reserved ='Yes' AND Assigned_to = $1", p.Assigned_to)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "400 "})
-			return
-		}
-
-		assets := []Asset[string]{}
-		for rows.Next() {
-			var Asset_ID, Assigned_to, Delete int
-			var Assigned_from, Created_on, Updated_on time.Time
-			var Asset_name, Manufacturer, BMC_IP, BMC_User, BMC_Password, Asset_location, Assigned_by, Created_by, Updated_by, OS_IP, OS_User, OS_Password, Purpose, Cluster_ID string
-			var Status, Reserved bool
-			err1 := rows.Scan(&Asset_ID, &Asset_name, &Manufacturer, &BMC_IP, &BMC_User, &BMC_Password, &Asset_location, &Reserved, &Assigned_to, &Assigned_from, &Assigned_by, &Created_on, &Created_by, &Updated_on, &Updated_by, &OS_IP, &OS_User, &OS_Password, &Purpose, &Cluster_ID, &Delete, &Status)
-			if err1 != nil {
-				log.Printf("Failed to build content from sql rows: %v \n", err1)
-				return
-			}
-			marshal, _ := json.Marshal(assets)
-			var c []Historic_details[string]
-			var username []string
-			var mail string
-			var user string
-			_ = json.Unmarshal(marshal, &c)
-			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
-			if err != nil {
-				fmt.Println(err)
-			}
-			username = strings.Split(mail, "@")
-			user = username[0]
-			assets = append(assets, Asset[string]{Asset_Id: Asset_ID, Asset_Name: Asset_name, Manufacturer: Manufacturer, BMC_IP: BMC_IP, BMC_User: BMC_User, BMC_Password: BMC_Password, Asset_Location: Asset_location, Reserved: Reserved, Assigned_to: user, Assigned_from: Assigned_from, Assigned_by: Assigned_by, Created_on: Created_on, Created_by: Created_by, Updated_on: Updated_on, Updated_by: Updated_by, OS_IP: OS_IP, OS_User: OS_User, OS_Password: OS_Password, Purpose: Purpose, Cluster_Id: Cluster_ID, Delete: Delete, Status: Status})
-		}
-		rev_slc := []Asset[string]{}
-		for i := range assets {
-			// reverse the order
-			rev_slc = append(rev_slc, assets[len(assets)-1-i])
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"ListAsset": rev_slc, "Status Code": "200 OK", "Message": "Listed specified assets"})
-
-		if len(assets) == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "user not found", "Status Code": "404 "})
-			return
-		}
-	})
-
-	//-----------------------------------------------historic details-----------------------------------------------
-	mux.HandleFunc("/historic_details", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func HistoricDetails(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodGet {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		str := "SELECT Id, Asset_ID,COALESCE(Assigned_to, 0), COALESCE(Assigned_from, '0001-01-01'), COALESCE(Updated_on,'0001-01-01'), Updated_by, Remarks  FROM Historic_details"
-
-		rows, err := db.Query(str)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "400 "})
-			return
-		}
-		result := []Historic_details[string]{} // creating slice
-		for rows.Next() {
-
-			var Id, Asset_Id, Assigned_to int
-			var Updated_by, Remarks string
-			var Updated_on, Assigned_from time.Time
-
-			err := rows.Scan(&Id, &Asset_Id, &Assigned_to, &Assigned_from, &Updated_on, &Updated_by, &Remarks)
-
-			if err != nil {
-				fmt.Println(err)
-				log.Printf("Failed to build content from sql rows: %v\n", err)
-
-			}
-			marshal, _ := json.Marshal(result)
-			var c []Historic_details[string]
-			var username []string
-			var user string
-			var mail string
-			_ = json.Unmarshal(marshal, &c)
-			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
-			if err != nil {
-				fmt.Println(err)
-			}
-			username = strings.Split(mail, "@")
-			user = username[0]
-			result = append(result, Historic_details[string]{Id: Id, Asset_Id: Asset_Id, Assigned_to: user, Assigned_from: Assigned_from, Updated_on: Updated_on, Updated_by: Updated_by, Remarks: Remarks})
-		}
-		rev_slc := []Historic_details[string]{}
-		for i := range result {
-			// reverse the order
-			rev_slc = append(rev_slc, result[len(result)-1-i])
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"Historic_Details": rev_slc, "Status Code": "200 OK", "Message": "Listing Historic details"})
 	})
 
 	//--------------------------------------------Dashboard:number of reserved and vacant asset---------------------------------------------------------------------
@@ -1109,8 +608,7 @@ func HandleFunc() {
 		var p Asset[int]
 		err := json.NewDecoder(r.Body).Decode(&p)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Status Code": "400", "Message": "Invalid input syntax"})
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		rows, err := db.Query(" SELECT asset_location, COUNT(CASE WHEN reserved='t' THEN 1 ELSE NULL END)AS reserved,  COUNT(CASE WHEN (reserved='f' or reserved is null) and delete=B'0' THEN 1 ELSE NULL END)AS vacant FROM asset where asset_location= $1 group by asset_location", p.Asset_Location)
@@ -1175,6 +673,484 @@ func HandleFunc() {
 		json.NewEncoder(w).Encode(map[string]interface{}{"Dashboard": dash, "Status": "200 OK", "Message": "Updated Statistics"})
 	})
 
+	//----------------------------------------------------------Assign Server--------------------------------------------------------------------------
+	mux.HandleFunc("/assign_asset", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func Assign_asset(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodPost {
+			w.WriteHeader(405)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+		var p Asset[int]
+		err := json.NewDecoder(r.Body).Decode(&p)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Invalid body", "Status Code": "202 "})
+			return
+		}
+
+		var reserved bool
+		var delete int
+		err = db.QueryRow("SELECT Reserved , Delete FROM Asset where Asset_ID=$1", p.Asset_Id).Scan(&reserved, &delete)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server already in use", "Status Code": "202 "})
+			return
+		}
+		if !reserved && delete == 0 {
+
+			_, err = db.Exec("UPDATE asset SET Assigned_to=$2,Assigned_from=CURRENT_DATE,Assigned_by=$3,Updated_on=CURRENT_DATE,Updated_by=$4,reserved = 'true',status='true' WHERE Asset_ID=$1;", p.Asset_Id, p.Assigned_to, p.Assigned_by, p.Updated_by)
+			if err != nil {
+				w.WriteHeader(http.StatusAccepted)
+				json.NewEncoder(w).Encode(map[string]string{"Message": "Invalid Input Syntax", "Status Code": "202 "})
+				return
+			}
+
+			_, err := db.Exec(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,Remarks)
+		SELECT Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,'Server Assigned' FROM Asset where Asset_ID=$1`, p.Asset_Id)
+
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server Assigned", "Status Code": "200 OK"})
+
+		} else {
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server cannot be assigned", "Status Code": "400 Bad Request"})
+
+		}
+	})
+
+	//-------------------------------------------------Delete Server(Updating delete and reserved column in asset table)-------------------------------
+	mux.HandleFunc("/delete_asset", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func Delete_asset(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodPut {
+			w.WriteHeader(405) // Return 405 Method Not Allowed.
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+		var p Asset[int]
+		err := json.NewDecoder(r.Body).Decode(&p)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
+			return
+		}
+		_, err = db.Exec("UPDATE asset SET Delete='1', Reserved = 'f' , Assigned_to = null WHERE Asset_Id=$1;", p.Asset_Id)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Deleted Server!", "Status Code": "200 OK"})
+		row := db.QueryRow("SELECT Delete from asset where Asset_Id=$1;", p.Asset_Id)
+		var del int
+		err1 := row.Scan(&del)
+		if err1 != nil {
+			log.Fatal(err1)
+		}
+		if !p.Reserved && del == 1 {
+			_, err := db.Query(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_ON,Updated_by,Remarks) 
+		SELECT Asset_ID,Assigned_to,Assigned_from,Updated_ON,Updated_by,'Server Deleted' FROM Asset where Asset_Id=$1`, p.Asset_Id)
+			if err != nil {
+				w.WriteHeader(http.StatusAccepted)
+				json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
+				return
+			}
+		} else {
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "No update required", "Status Code": "400 Bad Request"})
+		}
+	})
+
+	//-----------------------------------------------------List server ------------------------------------------------
+	mux.HandleFunc("/list_asset", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func ListServer(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodGet {
+			w.WriteHeader(405) // Return 405 Method Not Allowed.
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+		str := "SELECT Asset_ID, Asset_Name,Manufacturer,BMC_IP,BMC_User,Asset_location,COALESCE(Reserved,false),COALESCE(Assigned_to, 0),COALESCE(Assigned_from, '0001-01-01'),COALESCE(Assigned_by, ''),Created_on,Created_by,COALESCE(Updated_on,'0001-01-01'),COALESCE(Updated_by, ''),OS_IP ,OS_User,Purpose,COALESCE(Cluster_ID,''),Delete,COALESCE(Status, false) FROM Asset"
+
+		rows, err := db.Query(str)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
+			return
+		}
+		result := []Asset[string]{} // creating slice
+		for rows.Next() {
+			var Asset_Id, Assigned_to, Delete int
+			var Asset_Name, Manufacturer, OS_IP, OS_User, BMC_IP, BMC_User, Asset_Location, Assigned_by, Created_by, Updated_by, Cluster_Id, Purpose string
+			var Created_on, Updated_on, Assigned_from time.Time
+			var Status, Reserved bool
+
+			err := rows.Scan(&Asset_Id, &Asset_Name, &Manufacturer, &BMC_IP, &BMC_User, &Asset_Location, &Reserved, &Assigned_to, &Assigned_from, &Assigned_by, &Created_on, &Created_by, &Updated_on, &Updated_by, &OS_IP, &OS_User, &Purpose, &Cluster_Id, &Delete, &Status)
+
+			if err != nil {
+				fmt.Println(err)
+				log.Printf("Failed to build content from sql rows: %v\n", err)
+
+			}
+
+			marshal, _ := json.Marshal(result)
+			var c []Historic_details[string]
+			var username []string
+			var mail string
+			var user string
+			_ = json.Unmarshal(marshal, &c)
+			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
+			if err != nil {
+				fmt.Println(err)
+			}
+			username = strings.Split(mail, "@")
+			user = username[0]
+			result = append(result, Asset[string]{Asset_Id: Asset_Id, Asset_Name: Asset_Name, Manufacturer: Manufacturer, BMC_IP: BMC_IP, BMC_User: BMC_User, Asset_Location: Asset_Location, Reserved: Reserved, Assigned_to: user, Assigned_by: Assigned_by, Assigned_from: Assigned_from, Created_by: Created_by, Created_on: Created_on, Updated_by: Updated_by, Updated_on: Updated_on, OS_IP: OS_IP, OS_User: OS_User, Cluster_Id: Cluster_Id, Purpose: Purpose, Delete: Delete, Status: Status})
+		}
+		rev_slc := []Asset[string]{}
+		for i := range result {
+			// reverse the order
+			rev_slc = append(rev_slc, result[len(result)-1-i])
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"ListAsset": rev_slc, "Status Code": "200 OK", "Message": "Listing all assets"})
+	})
+
+	// ----------------------------------------------list of Reserved Assets-----------------------------------------------------------
+	mux.HandleFunc("/list_asset/Reserved", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func Reserved(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodGet {
+			w.WriteHeader(405) // Return 405 Method Not Allowed.
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+		str := "SELECT Asset_ID,Asset_Name,Manufacturer,BMC_IP,BMC_User,Asset_location,COALESCE(Reserved,false),COALESCE(Assigned_to,null),COALESCE(Assigned_from,'0001-01-01'),COALESCE(Assigned_by,' '),COALESCE(Created_on,'0001-01-01'),Created_by,COALESCE(Updated_on,'0001-01-01'),Updated_by,OS_IP,OS_User,Purpose,Cluster_ID,Delete,COALESCE(Status,false) FROM Asset where Reserved=true"
+		rows, err := db.Query(str)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
+			return
+		}
+		result := []Asset[string]{} // creating slice
+		var Asset_Id, Assigned_to, Delete int
+		var Asset_Name, Manufacturer, OS_IP, OS_User, BMC_IP, BMC_User, Asset_Location, Assigned_by, Created_by, Updated_by, Cluster_Id, Purpose string
+		var Created_on, Updated_on, Assigned_from time.Time
+		var Status, Reserved bool
+		for rows.Next() {
+			err := rows.Scan(&Asset_Id, &Asset_Name, &Manufacturer, &BMC_IP, &BMC_User, &Asset_Location, &Reserved, &Assigned_to, &Assigned_from, &Assigned_by, &Created_on, &Created_by, &Updated_on, &Updated_by, &OS_IP, &OS_User, &Purpose, &Cluster_Id, &Delete, &Status)
+
+			if err != nil {
+				fmt.Println(err)
+				log.Printf("Failed to build content from sql rows: %v\n", err)
+
+			}
+
+			marshal, _ := json.Marshal(result)
+			var c []Historic_details[string]
+			var username []string
+			var mail string
+			var user string
+			_ = json.Unmarshal(marshal, &c)
+			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
+			if err != nil {
+				fmt.Println(err)
+			}
+			username = strings.Split(mail, "@")
+			user = username[0]
+			result = append(result, Asset[string]{Asset_Id: Asset_Id, Asset_Name: Asset_Name, Manufacturer: Manufacturer, BMC_IP: BMC_IP, BMC_User: BMC_User, Asset_Location: Asset_Location, Reserved: Reserved, Assigned_to: user, Assigned_by: Assigned_by, Assigned_from: Assigned_from, Created_by: Created_by, Created_on: Created_on, Updated_by: Updated_by, Updated_on: Updated_on, OS_IP: OS_IP, OS_User: OS_User, Cluster_Id: Cluster_Id, Purpose: Purpose, Delete: Delete, Status: Status})
+		} // appending deatils to the result
+		rev_slc := []Asset[string]{}
+		for i := range result {
+			// reverse the order
+			rev_slc = append(rev_slc, result[len(result)-1-i])
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"ListAsset": rev_slc, "Status Code": "200 OK", "Message": "Listing all assets"})
+	})
+
+	// --------------------------------------------------list of pools Assets--------------------------------------------------------
+	mux.HandleFunc("/list_asset/pool", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func Pool(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodGet {
+			w.WriteHeader(405) // Return 405 Method Not Allowed.
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+
+		str := "SELECT Asset_ID,Asset_Name,Manufacturer,BMC_IP,BMC_User,Asset_location,COALESCE(Reserved,false),COALESCE(Assigned_to,0),COALESCE(Assigned_from,'0001-01-01'),COALESCE(Assigned_by,' '),COALESCE(Created_on,'0001-01-01'),Created_by,COALESCE(Updated_on,'0001-01-01'),COALESCE(Updated_by,' '),OS_IP,OS_User,Purpose,Cluster_ID,Delete,COALESCE(Status,false) FROM Asset where Delete=B'0' AND Reserved='false' OR Reserved is null "
+
+		rows, err := db.Query(str)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
+			return
+		}
+		result := []Asset[string]{} // creating slice
+		for rows.Next() {
+
+			var Asset_ID, Assigned_to, Delete int
+			var Assigned_from, Updated_on, Created_on time.Time
+			var Asset_Name, Manufacturer, OS_IP, OS_User, BMC_IP, BMC_user, Asset_location, Assigned_by, Created_by, Updated_by, Cluster_ID, Purpose string
+			var Reserved, Status bool
+			err := rows.Scan(&Asset_ID, &Asset_Name, &Manufacturer, &BMC_IP, &BMC_user, &Asset_location, &Reserved, &Assigned_to, &Assigned_from, &Assigned_by, &Created_on, &Created_by, &Updated_on, &Updated_by, &OS_IP, &OS_User, &Purpose, &Cluster_ID, &Delete, &Status)
+
+			if err != nil {
+				fmt.Println(err)
+				log.Printf("Failed to build content from sql rows: %v\n", err)
+
+			}
+
+			marshal, _ := json.Marshal(result)
+			var c []Historic_details[string]
+			var username []string
+			var mail string
+			var user string
+			_ = json.Unmarshal(marshal, &c)
+			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
+			if err != nil {
+				fmt.Println(err)
+			}
+			username = strings.Split(mail, "@")
+			user = username[0]
+			result = append(result, Asset[string]{Asset_Id: Asset_ID, Asset_Name: Asset_Name, Manufacturer: Manufacturer, BMC_IP: BMC_IP, BMC_User: BMC_user, Asset_Location: Asset_location, Reserved: Reserved, Assigned_to: user, Assigned_by: Assigned_by, Assigned_from: Assigned_from, Created_by: Created_by, Created_on: Created_on, Updated_by: Updated_by, Updated_on: Updated_on, OS_IP: OS_IP, OS_User: OS_User, Cluster_Id: Cluster_ID, Purpose: Purpose, Delete: Delete, Status: Status})
+		} // appending deatils to the result
+		rev_slc := []Asset[string]{}
+		for i := range result {
+			// reverse the order
+			rev_slc = append(rev_slc, result[len(result)-1-i])
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"ListAsset": rev_slc, "Status Code": "200 OK", "Message": "Listing all assets"})
+	})
+
+	//--------------------------------------------------update asset details------------------------------------------------------
+	mux.HandleFunc("/update_asset_details", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func UpdateAssetDetails(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodPost {
+			w.WriteHeader(405) // Return 405 Method Not Allowed.
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+		var p Asset[int]
+		Delete := p.Delete
+		err := json.NewDecoder(r.Body).Decode(&p)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_, err1 := db.Exec("UPDATE Asset SET BMC_Password=$2,Asset_location=$3,Updated_on=CURRENT_DATE,Updated_by=$4,Purpose=$5 WHERE Asset_ID=$1;", p.Asset_Id, p.BMC_Password, p.Asset_Location, p.Updated_by, p.Purpose)
+
+		if err1 != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err1, "Status Code": "202 "})
+			return
+		}
+
+		if Delete == 1 || Delete == 0 {
+			_, err := db.Query(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,Remarks)
+            SELECT Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,'Asset_updated' FROM Asset where Asset_ID=$1`, p.Asset_Id)
+
+			if err != nil {
+				fmt.Println(err)
+			}
+			//fmt.Fprintf(w, "Record Updated!")
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Record Updated!", "Status Code": "200 OK"})
+
+		} else {
+			fmt.Println("No update is required")
+		}
+	})
+
+	//----------------------------------------------Release server (updating Reserve table)------------------------
+	mux.HandleFunc("/release_asset", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func Release(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodPost {
+			w.WriteHeader(405) // Return 405 Method Not Allowed.
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+		var p Asset[int]
+		err := json.NewDecoder(r.Body).Decode(&p)
+		if err != nil {
+			panic(err.Error())
+		}
+		var reserved bool
+		err = db.QueryRow("SELECT Reserved FROM Asset where Asset_ID=$1", p.Asset_Id).Scan(&reserved)
+		if err != nil {
+			fmt.Println(err)
+
+		}
+		if reserved {
+
+			_, err = db.Exec("UPDATE Asset SET Reserved='false',Assigned_to=null,Updated_on=CURRENT_DATE,Updated_by=$2 where Asset_ID=$1;", p.Asset_Id, p.Updated_by) // query for updating
+			if err != nil {
+				fmt.Println(err)
+
+				http.Error(w, http.StatusText(500), http.StatusInternalServerError)
+				return
+			}
+
+			_, err := db.Exec(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,Remarks)
+        SELECT Asset_ID,Assigned_to,Assigned_from,CURRENT_DATE,Updated_by,'Server Released' FROM Asset where Asset_ID=$1`, p.Asset_Id)
+
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server Released", "Status Code": "200 OK"})
+
+		} else {
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Server can't release", "Status Code": "400"})
+
+		}
+	})
+
+	//------------------------------------------------------getmyasset--------------------------------------------------------
+	mux.HandleFunc("/my_asset", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func GetAsset(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodPost {
+			w.WriteHeader(405) // Return 405 Method Not Allowed.
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+		var p Asset[int]
+		err := json.NewDecoder(r.Body).Decode(&p)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		rows, err := db.Query("SELECT * from Asset where Reserved ='Yes' AND Assigned_to = $1", p.Assigned_to)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
+			return
+		}
+
+		assets := []Asset[string]{}
+		for rows.Next() {
+			var Asset_ID, Assigned_to, Delete int
+			var Assigned_from, Created_on, Updated_on time.Time
+			var Asset_name, Manufacturer, BMC_IP, BMC_User, BMC_Password, Asset_location, Assigned_by, Created_by, Updated_by, OS_IP, OS_User, OS_Password, Purpose, Cluster_ID string
+			var Status, Reserved bool
+			err1 := rows.Scan(&Asset_ID, &Asset_name, &Manufacturer, &BMC_IP, &BMC_User, &BMC_Password, &Asset_location, &Reserved, &Assigned_to, &Assigned_from, &Assigned_by, &Created_on, &Created_by, &Updated_on, &Updated_by, &OS_IP, &OS_User, &OS_Password, &Purpose, &Cluster_ID, &Delete, &Status)
+			if err1 != nil {
+				log.Printf("Failed to build content from sql rows: %v \n", err1)
+				return
+			}
+			marshal, _ := json.Marshal(assets)
+			var c []Historic_details[string]
+			var username []string
+			var mail string
+			var user string
+			_ = json.Unmarshal(marshal, &c)
+			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
+			if err != nil {
+				fmt.Println(err)
+			}
+			username = strings.Split(mail, "@")
+			user = username[0]
+			assets = append(assets, Asset[string]{Asset_Id: Asset_ID, Asset_Name: Asset_name, Manufacturer: Manufacturer, BMC_IP: BMC_IP, BMC_User: BMC_User, BMC_Password: BMC_Password, Asset_Location: Asset_location, Reserved: Reserved, Assigned_to: user, Assigned_from: Assigned_from, Assigned_by: Assigned_by, Created_on: Created_on, Created_by: Created_by, Updated_on: Updated_on, Updated_by: Updated_by, OS_IP: OS_IP, OS_User: OS_User, OS_Password: OS_Password, Purpose: Purpose, Cluster_Id: Cluster_ID, Delete: Delete, Status: Status})
+		}
+		rev_slc := []Asset[string]{}
+		for i := range assets {
+			// reverse the order
+			rev_slc = append(rev_slc, assets[len(assets)-1-i])
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"ListAsset": rev_slc, "Status Code": "200 OK", "Message": "Listed specified assets"})
+
+		if len(assets) == 0 {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "user not found", "Status Code": "202 "})
+			return
+		}
+	})
+
+	//-----------------------------------------------historic details-----------------------------------------------
+	mux.HandleFunc("/historic_details", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		//func HistoricDetails(w http.ResponseWriter, r *http.Request) {
+		//SetupCORS(&w)
+		if r.Method != http.MethodGet {
+			w.WriteHeader(405) // Return 405 Method Not Allowed.
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
+			return
+		}
+		str := "SELECT Id, Asset_ID,COALESCE(Assigned_to, 0), COALESCE(Assigned_from, '0001-01-01'), COALESCE(Updated_on,'0001-01-01'), Updated_by, Remarks  FROM Historic_details"
+
+		rows, err := db.Query(str)
+		if err != nil {
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
+			return
+		}
+		result := []Historic_details[string]{} // creating slice
+		for rows.Next() {
+
+			var Id, Asset_Id, Assigned_to int
+			var Updated_by, Remarks string
+			var Updated_on, Assigned_from time.Time
+
+			err := rows.Scan(&Id, &Asset_Id, &Assigned_to, &Assigned_from, &Updated_on, &Updated_by, &Remarks)
+
+			if err != nil {
+				fmt.Println(err)
+				log.Printf("Failed to build content from sql rows: %v\n", err)
+
+			}
+			marshal, _ := json.Marshal(result)
+			var c []Historic_details[string]
+			var username []string
+			var user string
+			var mail string
+			_ = json.Unmarshal(marshal, &c)
+			err = db.QueryRow(" SELECT Email_ID FROM users where User_ID=$1;", Assigned_to).Scan(&mail)
+			if err != nil {
+				fmt.Println(err)
+			}
+			username = strings.Split(mail, "@")
+			user = username[0]
+			result = append(result, Historic_details[string]{Id: Id, Asset_Id: Asset_Id, Assigned_to: user, Assigned_from: Assigned_from, Updated_on: Updated_on, Updated_by: Updated_by, Remarks: Remarks})
+		}
+		rev_slc := []Historic_details[string]{}
+		for i := range result {
+			// reverse the order
+			rev_slc = append(rev_slc, result[len(result)-1-i])
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"Historic_Details": rev_slc, "Status Code": "200 OK", "Message": "Listing Historic details"})
+	})
+
 	// -------------------------------------------------view users list---------------------------------------------------------------
 	mux.HandleFunc("/view_users", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
@@ -1191,9 +1167,7 @@ func HandleFunc() {
 		rows, err := db.Query("SELECT User_ID, Email_ID, First_Name, Last_Name, Created_on, Created_by,COALESCE(Updated_on,'0001-01-01'),COALESCE(Updated_by, ''), Role, Teams from USERS where Delete=B'0'") // data selecting from user_table
 
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "400", "Message": err})
-
+			log.Printf("Failed to build content from sql rows: %v \n", err)
 		}
 
 		users := []userDetails{}
@@ -1233,9 +1207,8 @@ func HandleFunc() {
 		var user userDetails
 		err := json.NewDecoder(r.Body).Decode(&user)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Status Code": "400", "Message": "Invalid input syntax-email"})
-
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Invalid syntax for email", "Status Code": "202 "})
 			return
 		}
 		var User_Id int
@@ -1245,15 +1218,11 @@ func HandleFunc() {
 		err = db.QueryRow("SELECT Email_ID FROM Users where Email_ID=$1", user.Email_Id).Scan(&Email)
 		if user.Email_Id == Email {
 			w.WriteHeader(http.StatusAccepted)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Status": "202", "Message": "Email already exists"})
+			json.NewEncoder(w).Encode(map[string]interface{}{"Status": "202", "Message": "Email is already exist"})
 			return
 		} else {
 
 			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 8)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Invalid input syntax for IP ", "Status Code": "400 ", "Error": err})
-			}
 			adduser := `insert into Users(Email_ID,Password,First_Name,Last_Name,Created_on,Created_by,Updated_on,Updated_by,Role,Teams,Delete) values ($1, $2, $3, $4,CURRENT_DATE, $5,CURRENT_DATE, $6, $7, $8,'0')`
 			_, err = db.Exec(adduser, user.Email_Id, string(hashedPassword), user.First_Name, user.Last_Name, user.Created_by, user.Updated_by, user.Role, user.Teams)
 			if err != nil {
@@ -1272,7 +1241,7 @@ func HandleFunc() {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		//func Delete_User(w http.ResponseWriter, r *http.Request) {
 		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
+		if r.Method != http.MethodPut {
 			w.WriteHeader(405) // Return 405 Method Not Allowed.
 			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
 			return
@@ -1286,8 +1255,8 @@ func HandleFunc() {
 		rows, err := db.Query("SELECT User_ID, Email_ID,Password, First_Name, Last_Name, Created_on, Created_by,COALESCE(Updated_on,'0001-01-01'),COALESCE(Updated_by, ''), Role, Teams,Delete FROM USERS WHERE User_ID = $1", users.User_Id)
 		User_ID := 0
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "400 "})
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
 			return
 		}
 
@@ -1302,8 +1271,8 @@ func HandleFunc() {
 			User_ID++
 		}
 		if User_ID == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "404", "Message": "user not found"})
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "202 Bad request", "Message": "user not found"})
 
 		} else {
 			rows, err := db.Query("UPDATE users SET delete = '1' WHERE user_id= $1", users.User_Id)
@@ -1336,14 +1305,14 @@ func HandleFunc() {
 		}
 	})
 
-	// ------------------------------------------------------------update user-----------------------------------------------------------------
+	// -------------------------------------------------------------------------update user-----------------------------------------------------------------
 	mux.HandleFunc("/update_users", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		//func Update_User(w http.ResponseWriter, r *http.Request) {
 		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
+		if r.Method != http.MethodPut {
 			w.WriteHeader(405) // Return 405 Method Not Allowed.
 			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
 			return
@@ -1351,8 +1320,8 @@ func HandleFunc() {
 		var users userDetails
 		err := json.NewDecoder(r.Body).Decode(&users)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "400 "})
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
 			return
 		}
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(users.Password), 8)
@@ -1368,7 +1337,7 @@ func HandleFunc() {
 		json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "200", "Message": "Record Updated!"})
 	})
 
-	//-------------------------------------------------- List of request table ------------------------------------------------
+	//--------------------------------------------------------- List of request table ------------------------------------------------
 	mux.HandleFunc("/list_request", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -1381,12 +1350,10 @@ func HandleFunc() {
 			return
 		}
 
-		rows, err := db.Query("SELECT Id,User_No,Creator,Start_Date,End_Date,Manufacturer,Number_Of_Servers,Operating_System,Cpu_model,CPU_Sockets,DIMM_Size,DIMM_Capacity,Storage_Vendor,Storage_Controller,Storage_Capacity,Network_Type,Network_speed,Number_Of_Network_Ports,Special_Switching_Needs,COALESCE(Infraadmin_Comments, ''),COALESCE(User_Comments, ''),COALESCE(Request, false) from Server_Request where Request='f'")
+		rows, err := db.Query("SELECT Id,User_No,Creator,Start_Date,End_Date,Manufacturer,Number_Of_Servers,Operating_System,Cpu_model,CPU_Sockets,DIMM_Size,DIMM_Capacity,Storage_Vendor,Storage_Controller,Storage_Capacity,Network_Type,Network_speed,Number_Of_Network_Ports,Special_Switching_Needs,COALESCE(Infraadmin_Comments, Array[null]),COALESCE(User_Comments, Array[null]),COALESCE(Request, false) from Server_Request")
 
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "400", "Message": err})
-			return
+			log.Printf("Failed to build content from sql rows: %v \n", err)
 		}
 
 		users := []Server_Request{}
@@ -1467,9 +1434,7 @@ func HandleFunc() {
 		//SetupCORS(&w)
 		err := json.NewDecoder(r.Body).Decode(&v)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Status Code": "400", "Message": "Invalid input syntax"})
-
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if r.Method != http.MethodPost {
@@ -1487,7 +1452,7 @@ func HandleFunc() {
 			return
 		}
 
-		_, err2 := db.Exec("UPDATE Server_Request SET User_Comments= $2  where ID=$1;", v.Id, v.User_Comments+","+currentTime.Format("2006-01-02 15:04:05"))
+		_, err2 := db.Exec("UPDATE Server_Request SET User_Comments= array_prepend( $2, User_Comments)  where ID=$1;", v.Id, v.User_Comments+","+currentTime.Format("2006-01-02 15:04:05 Monday"))
 
 		if err2 != nil {
 			w.WriteHeader(http.StatusAccepted)
@@ -1524,7 +1489,7 @@ func HandleFunc() {
 			return
 		}
 
-		_, err2 := db.Exec("UPDATE Server_Request SET Infraadmin_Comments= $2  where ID=$1;", v.Id, v.Infraadmin_Comments+","+currentTime.Format("2006-01-02 15:04:05"))
+		_, err2 := db.Exec("UPDATE Server_Request SET Infraadmin_Comments= array_prepend( $2 , Infraadmin_Comments)  where ID=$1;", v.Id, v.Infraadmin_Comments+","+currentTime.Format("2006-01-02 15:04:05 Monday"))
 
 		if err2 != nil {
 			w.WriteHeader(http.StatusAccepted)
@@ -1554,7 +1519,7 @@ func HandleFunc() {
 			return
 		}
 
-		rows, err := db.Query("SELECT * from Server_Request WHERE  Request='f' AND User_No = $1", p.User_No)
+		rows, err := db.Query("SELECT * from Server_Request WHERE  User_No = $1", p.User_No)
 		if err != nil {
 			w.WriteHeader(http.StatusAccepted)
 			json.NewEncoder(w).Encode(map[string]interface{}{"Message": err, "Status Code": "202 "})
@@ -1585,187 +1550,10 @@ func HandleFunc() {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ListMyRequests": rev_slc, "Status Code": "200 OK", "Message": "Listed specified Requests"})
 
 		if len(Requests) == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "No current Requests", "Status Code": "404"})
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "No current Requests", "Status Code": "202 "})
 			return
 		}
-	})
-
-	//-------------------------------------------------------infra_chat-----------------------------------------------------
-
-	mux.HandleFunc("/infra_chat", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-
-		if r.Method != http.MethodPost {
-			w.WriteHeader(405)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		p := Server_Request{}
-		err := json.NewDecoder(r.Body).Decode(&p)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		rows, err := db.Query("SELECT Id,COALESCE(Infraadmin_Comments, '') from Server_Request where Id=$1", p.Id)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "400", "Message": err})
-			return
-		}
-
-		var chat []Chat
-		var a []string
-		for rows.Next() {
-			var Id int
-			var Infraadmin_Comments string
-			err := rows.Scan(&Id, &Infraadmin_Comments)
-			if err != nil {
-				log.Fatal(err)
-				json.NewEncoder(w).Encode(map[string]interface{}{"status": "400 Bad Request", "Message": err})
-			}
-
-			fmt.Println(Infraadmin_Comments)
-
-			index := strings.Split(string(Infraadmin_Comments), ",")
-			for i := 0; i < len(index); i++ {
-				a = append(a, index[i])
-			}
-			c := 2
-			r := (len(a) + c - 1) / c
-			b := make([][]string, r)
-			lo, hi := 0, c
-			for i := range b {
-				if hi > len(a) {
-					hi = len(a)
-				}
-				b[i] = a[lo:hi:hi]
-				lo, hi = hi, hi+c
-
-			}
-
-			chat = append(chat, Chat{Id: Id, Comment: b})
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"Infra_chat": chat, "Status": "200 OK"})
-
-	})
-
-	//-------------------------------------------------------user_chat-----------------------------------------------------
-
-	mux.HandleFunc("/user_chat", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-
-		if r.Method != http.MethodPost {
-			w.WriteHeader(405)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		p := Server_Request{}
-		err := json.NewDecoder(r.Body).Decode(&p)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		rows, err := db.Query("SELECT Id,COALESCE(User_Comments, '') from Server_Request where Id=$1", p.Id)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "400", "Message": err})
-			return
-		}
-
-		var chat []Chat
-		var a []string
-		for rows.Next() {
-			var Id int
-			var User_Comments string
-			err := rows.Scan(&Id, &User_Comments)
-			if err != nil {
-				log.Fatal(err)
-				json.NewEncoder(w).Encode(map[string]interface{}{"status": "400 Bad Request", "Message": err})
-			}
-			fmt.Println(User_Comments)
-			index := strings.Split(string(User_Comments), ",")
-			for i := 0; i < len(index); i++ {
-				a = append(a, index[i])
-			}
-			c := 2
-			r := (len(a) + c - 1) / c
-			b := make([][]string, r)
-			lo, hi := 0, c
-			for i := range b {
-				if hi > len(a) {
-					hi = len(a)
-				}
-				b[i] = a[lo:hi:hi]
-				lo, hi = hi, hi+c
-
-			}
-
-			chat = append(chat, Chat{Id: Id, Comment: b})
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"User_chat": chat, "Status": "200 OK"})
-
-	})
-
-	//------------------------------------------------add asset(from request)---------------------------------------------------------------------
-	mux.HandleFunc("/add_asset_request", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization,application/json ")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		//func AddAsset(w http.ResponseWriter, r *http.Request) {
-		//SetupCORS(&w)
-		if r.Method != http.MethodPost {
-			w.WriteHeader(405) // Return 405 Method Not Allowed.
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "method not found", "Status Code": "405 "})
-			return
-		}
-		var assets Asset[int]
-		var s Server_Request
-		var Asset_Id int
-		Asset_Id = 0
-
-		err := json.NewDecoder(r.Body).Decode(&assets)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Message": "Invalid Input Syntax", "Status Code": "400 "})
-			return
-		}
-
-		err = db.QueryRow("Select Asset_Id from Asset where Asset_Id=$1", assets.Asset_Id).Scan(&Asset_Id)
-
-		Asset_Id = Asset_Id + 1
-		addStatement := `INSERT INTO asset (Asset_Name,Manufacturer, BMC_IP, BMC_User, BMC_Password, Asset_location,Reserved,Assigned_by,Assigned_to,Assigned_from,Created_on,Created_by,OS_IP,OS_User,OS_Password,Purpose,Cluster_Id,Delete,Updated_on,Updated_by) VALUES ($1,$2,$3,$4,$5,$6,'t',$7,$8,CURRENT_DATE,CURRENT_DATE,$9,$10,$11,$12,$13,$14,'0',CURRENT_DATE,$15)`
-		_, err = db.Exec(addStatement, assets.Asset_Name, assets.Manufacturer, assets.BMC_IP, assets.BMC_User, assets.BMC_Password, assets.Asset_Location, assets.Assigned_by, assets.Assigned_to, assets.Created_by, assets.OS_IP, assets.OS_User, assets.OS_Password, assets.Purpose, assets.Cluster_Id, assets.Updated_by)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Println(err)
-			json.NewEncoder(w).Encode(map[string]interface{}{"Message": "Invalid input syntax for IP ", "Status Code": "400 ", "Error": err})
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{"Status Code": "200 OK", "Message": "Recorded sucessfully"})
-
-		//request approve and recorded in history
-		_, err = db.Exec("UPDATE server_request SET Request='t' WHERE Id=$1;", s.Id)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"Message": "Invalid Input Syntax", "Status Code": "400 "})
-			return
-		}
-
-		_, err = db.Exec(`INSERT into Historic_details (Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,Remarks)
-		SELECT Asset_ID,Assigned_to,Assigned_from,Updated_on,Updated_by,'Server Assigned' FROM Asset where Asset_ID=$1`, Asset_Id)
-
-		if err != nil {
-			fmt.Println(err)
-		}
-
 	})
 
 	handler := cors.Default().Handler(mux)
